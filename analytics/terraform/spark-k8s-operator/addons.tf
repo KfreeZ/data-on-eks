@@ -224,6 +224,68 @@ module "eks_data_addons" {
       EOT
       ]
     }
+
+    spark-mix-memory-optimized = {
+      values = [
+        <<-EOT
+      name: spark-mix-memory-optimized
+      clusterName: ${module.eks.cluster_name}
+      ec2NodeClass:
+        amiFamily: AL2023
+        amiSelectorTerms:
+          - alias: al2023@latest # Amazon Linux 2023
+        karpenterRole: ${split("/", module.eks_blueprints_addons.karpenter.node_iam_role_arn)[1]}
+        subnetSelectorTerms:
+          tags:
+            Name: "${module.eks.cluster_name}-private*"
+        securityGroupSelectorTerms:
+          tags:
+            Name: ${module.eks.cluster_name}-node
+        instanceStorePolicy: RAID0
+        blockDeviceMappings:
+          - deviceName: /dev/xvda
+            ebs:
+              volumeSize: 200Gi
+              volumeType: gp3
+              encrypted: true
+              deleteOnTermination: true
+      nodePool:
+        labels:
+          - type: karpenter
+          - NodeGroupType: SparkMixMemoryOptimized
+          - multiArch: Spark
+        requirements:
+          - key: "karpenter.sh/capacity-type"
+            operator: In
+            values: ["spot", "on-demand"]
+          - key: "kubernetes.io/arch"
+            operator: In
+            values: ["arm64", "amd64"]
+          - key: "karpenter.k8s.aws/instance-category"
+            operator: In
+            values: ["r"]
+          - key: "karpenter.k8s.aws/instance-family"
+            operator: In
+            values: ["r7i", "r8g", "r6i", "r7g"]
+          - key: "karpenter.k8s.aws/instance-size"
+            operator: In
+            values: ["8xlarge", "12xlarge", "16xlarge"]
+          - key: "karpenter.k8s.aws/instance-hypervisor"
+            operator: In
+            values: ["nitro"]
+          - key: "karpenter.k8s.aws/instance-generation"
+            operator: Gt
+            values: ["2"]
+        limits:
+          cpu: 1000
+        disruption:
+          consolidationPolicy: WhenEmptyOrUnderutilized
+          consolidateAfter: 1m
+        weight: 100
+      EOT
+      ]
+    }
+
     spark-vertical-ebs-scale = {
       values = [
         <<-EOT
@@ -436,7 +498,7 @@ module "eks_data_addons" {
   #---------------------------------------------------------------
   # Kubecost Add-on
   #---------------------------------------------------------------
-  enable_kubecost = true
+  enable_kubecost = false
   kubecost_helm_config = {
     chart_version       = "2.3.3"
     values              = [templatefile("${path.module}/helm-values/kubecost-values.yaml", {})]
@@ -597,7 +659,7 @@ module "eks_blueprints_addons" {
   # 2- Grafana Admin user: admin
   # 3- Get admin user password: `aws secretsmanager get-secret-value --secret-id <output.grafana_secret_name> --region $AWS_REGION --query "SecretString" --output text`
   #---------------------------------------------------------------
-  enable_kube_prometheus_stack = true
+  enable_kube_prometheus_stack = false
   kube_prometheus_stack = {
     values = [
       var.enable_amazon_prometheus ? templatefile("${path.module}/helm-values/kube-prometheus-amp-enable.yaml", {

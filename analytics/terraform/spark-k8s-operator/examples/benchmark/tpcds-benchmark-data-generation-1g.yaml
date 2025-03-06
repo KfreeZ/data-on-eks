@@ -5,7 +5,7 @@
 apiVersion: "sparkoperator.k8s.io/v1beta2"
 kind: SparkApplication
 metadata:
-  name: tpcds-data-generation-1tb
+  name: tpcds-data-generation-1gb
   namespace: spark-team-a
 spec:
   # Temporarily commented out until the YuniKorn issue is resolved; falls back to the default Kubernetes scheduler
@@ -21,17 +21,17 @@ spec:
   mainApplicationFile: local:///opt/spark/examples/jars/eks-spark-benchmark-assembly-1.0.jar
   arguments:
   # TPC-DS data location
-  - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1TB-30krec"
+  - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1GB-30krec"
   # Path to kit in the docker image
   - "/opt/tpcds-kit/tools"
   # Data Format
   - "parquet"
   # Scale factor (in GB) - S3 output size shows  309.4GB for 1000GB Input
-  - "1000"
+  - "1"
   # Generate data num partitions
   - "200"
   # Create the partitioned fact tables
-  - "true"
+  - "true" #zkf change to false to test small files
   # Shuffle to get partitions coalesced into single files.
   - "true"
   # Logging set to WARN
@@ -61,7 +61,7 @@ spec:
     "spark.sql.adaptive.localShuffleReader.enabled": "true"
     "spark.sql.adaptive.coalescePartitions.enabled": "true"
     "spark.sql.adaptive.skewJoin.enabled": "true"
-    "spark.sql.files.maxRecordsPerFile": "30000" #original 30M, zkf change to 30K to test small files
+    "spark.sql.files.maxRecordsPerFile": "30000000" #original 30M, zkf change to 30K to test small files
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer"
 
     # S3 Optimizations
@@ -101,10 +101,10 @@ spec:
   restartPolicy:
     type: Never
   driver:
-    cores: 8
+    cores: 11
     # The maximum memory size of the container to the running executor is determined by the sum of
     #  spark.executor.memoryoverHead, spark.executor.memory, spark.memory.offHeap.size, spark.executor.pyspark.memory
-    memory: "16g"
+    memory: "15g"
     memoryOverhead: "4g"
     serviceAccount: spark-team-a
     securityContext:
@@ -125,12 +125,12 @@ spec:
     nodeSelector:
       NodeGroupType: spark_benchmark_ssd
   executor:
-    cores: 8
+    cores: 11
     # The maximum memory size of the container to the running executor is determined by the sum of
     #  spark.executor.memoryoverHead, spark.executor.memory, spark.memory.offHeap.size, spark.executor.pyspark.memory
-    memory: "16g"
+    memory: "15g"
     memoryOverhead: "4g"
-    instances: 24
+    instances: 22
     serviceAccount: spark-team-a
     securityContext:
       runAsUser: 185

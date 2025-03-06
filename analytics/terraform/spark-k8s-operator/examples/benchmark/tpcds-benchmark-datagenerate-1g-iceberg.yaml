@@ -1,34 +1,22 @@
-# Pre-requisite before running this job
-# Replace <S3_BUCKET> with your S3 bucket created by this blueprint(Check Terraform outputs)
-# REPLACE <S3TABLE_ARN> with actual S3 Table ARN
----
-apiVersion: "sparkoperator.k8s.io/v1beta2"
+apiVersion: sparkoperator.k8s.io/v1beta2
 kind: SparkApplication
 metadata:
-  name: "s3table-example"
+  name: iceberg-generate-1g
   namespace: spark-team-a
-  labels:
-    app: "s3table-example"
-    applicationId: "s3table-example-nvme"
 spec:
   type: Python
   sparkVersion: "3.5.3"
   mode: cluster
-  # CAUTION: Unsupported test image
-  # This image is created solely for testing and reference purposes.
-  # Before use, please:
-  # 1. Review the Dockerfile used to create this image
-  # 2. Create your own image that meets your organization's security requirements
   image: "public.ecr.aws/data-on-eks/spark:3.5.3-scala2.12-java17-python3-ubuntu-s3table0.1.3-iceberg1.6.1"
-  imagePullPolicy: IfNotPresent
-  mainApplicationFile: "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/s3table-example/scripts/s3table-iceberg-pyspark.py"
+  mainApplicationFile: "s3a://kfz-tpcds-dataset/writeIceberg.py"
   arguments:
-  - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/s3table-example/input/"
-  - "arn:aws:s3tables:us-east-1:724772074726:bucket/exployee-test"
+    - "--source-dir=s3a://kfz-tpcds-dataset/1g/warehouse/parquet/"
+    - "--target-dir=s3a://kfz-tpcds-dataset/1g/icetest/"
+    - "--database_name=ice1g"
   sparkConf:
-    "spark.app.name": "s3table-example"
-    "spark.kubernetes.driver.pod.name": "s3table-example"
-    "spark.kubernetes.executor.podNamePrefix": "s3table-example"
+    "spark.app.name": "iceberg-generate-1g"
+    "spark.kubernetes.driver.pod.name": "iceberg-generate-1g"
+    "spark.kubernetes.executor.podNamePrefix": "iceberg-generate-1g"
     "spark.local.dir": "/data"
     "spark.speculation": "false"
     "spark.network.timeout": "2400"

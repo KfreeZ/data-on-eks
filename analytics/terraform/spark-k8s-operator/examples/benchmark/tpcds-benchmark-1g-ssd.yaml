@@ -1,7 +1,7 @@
 # > **Note:** Before running these jobs, make sure the following prerequisites are completed:
 
 # 1. Set up an S3 bucket to store the generated data.
-# 2. Update the `eks.tf` file to modify `min_size=6` and `desired_size=6` for the managed node group `"spark_benchmark_ebs"`, then run `terraform apply`.
+# 2. Update the `eks.tf` file to modify `min_size=6` and `desired_size=6` for the managed node group `"spark_benchmark_ssd"`, then run `terraform apply`.
 # 3. Confirm that the `"spark-team-a"` namespace exists.
 # 4. Replace `<S3_BUCKET>` in the configuration with your actual bucket name.
 # 5. Run `kubectl apply -f <filename>` to apply the configuration.
@@ -13,7 +13,7 @@
 apiVersion: "sparkoperator.k8s.io/v1beta2"
 kind: SparkApplication
 metadata:
-  name: tpcds-benchmark-1tb-ebs # Change for each test with instancetype etc,
+  name: tpcds-benchmark-1gb-ssd
   namespace: spark-team-a
 spec:
   # Temporarily commented out until the YuniKorn issue is resolved; falls back to the default Kubernetes scheduler
@@ -29,15 +29,15 @@ spec:
   mainApplicationFile: local:///opt/spark/examples/jars/eks-spark-benchmark-assembly-1.0.jar
   arguments:
     # TPC-DS data location
-    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1TB-30krec/"
+    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1GB"
     # results location
-    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1T-RESULT/30krec"
+    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1G-RESULT"
     # Path to kit in the docker image
     - "/opt/tpcds-kit/tools"
     # Data Format
     - "parquet"
     # Scale factor (in GB)
-    - "1000" # changed from 3000 to 100gb for demo
+    - "1" # changed from 3000 to 100gb for demo
     # Number of iterations
     - "1"
     # Optimize queries with hive tables
@@ -56,7 +56,7 @@ spec:
 
     # Spark Event logs
     "spark.eventLog.enabled": "true"
-    "spark.eventLog.dir": "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/spark-event-logs"
+    "spark.eventLog.dir": "s3a://20250219081011868600000007/spark-event-logs"
     "spark.eventLog.rolling.enabled": "true"
     "spark.eventLog.rolling.maxFileSize": "64m"
 
@@ -67,7 +67,7 @@ spec:
     "spark.sql.adaptive.localShuffleReader.enabled": "true"
     "spark.sql.adaptive.coalescePartitions.enabled": "true"
     "spark.sql.adaptive.skewJoin.enabled": "true"
-    "spark.kubernetes.executor.podNamePrefix": "benchmark-exec-ebs"
+    "spark.kubernetes.executor.podNamePrefix": "benchmark-exec-ssd"
    # S3 Optimizations
     # "spark.hadoop.fs.s3a.aws.credentials.provider": "com.amazonaws.auth.WebIdentityTokenCredentialsProvider" # This is using AWS SDK V1 in maintenance mode
     "spark.hadoop.fs.s3a.aws.credentials.provider.mapping": "com.amazonaws.auth.WebIdentityTokenCredentialsProvider=software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider"
@@ -76,7 +76,7 @@ spec:
     "spark.hadoop.fs.s3a.fast.upload": "true"
     "spark.hadoop.fs.s3a.path.style.access": "true"
     "spark.hadoop.fs.s3a.fast.upload.buffer": "disk"
-    "spark.hadoop.fs.s3a.buffer.dir": "/tmp/s3a"
+    "spark.hadoop.fs.s3a.buffer.dir": "/data1/s3a" # Using SSD disk
     "spark.hadoop.fs.s3a.multipart.size": "128M" # Good for large files
     "spark.hadoop.fs.s3a.multipart.threshold": "256M"
     "spark.hadoop.fs.s3a.threads.max": "50"
@@ -116,11 +116,21 @@ spec:
     serviceAccount: spark-team-a
     securityContext:
       runAsUser: 185
+    volumeMounts:
+      - name: spark-local-dir-1
+        mountPath: /data1
+    initContainers:
+      - name: volume-permission
+        image: public.ecr.aws/docker/library/busybox
+        command: ['sh', '-c', 'mkdir -p /data1; chown -R 185:185 /data1']
+        volumeMounts:
+          - name: spark-local-dir-1
+            mountPath: /data1
     env:
       - name: JAVA_HOME
         value: "/opt/java/openjdk"
     nodeSelector:
-      NodeGroupType: spark_benchmark_ebs
+      NodeGroupType: spark_benchmark_ssd
   executor:
     cores: 5
     memory: "20g"
@@ -130,10 +140,25 @@ spec:
     serviceAccount: spark-team-a
     securityContext:
       runAsUser: 185
+    volumeMounts:
+      - name: spark-local-dir-1
+        mountPath: /data1
+    initContainers:
+      - name: volume-permission
+        image: public.ecr.aws/docker/library/busybox
+        command: ['sh', '-c', 'mkdir -p /data1; chown -R 185:185 /data1']
+        volumeMounts:
+          - name: spark-local-dir-1
+            mountPath: /data1
     env:
       - name: JAVA_HOME
         value: "/opt/java/openjdk"
     nodeSelector:
-      NodeGroupType: spark_benchmark_ebs
+      NodeGroupType: spark_benchmark_ssd
   restartPolicy:
     type: Never
+  volumes:
+    - name: spark-local-dir-1
+      hostPath:
+        path: "/mnt/k8s-disks/0"
+        type: DirectoryOrCreate

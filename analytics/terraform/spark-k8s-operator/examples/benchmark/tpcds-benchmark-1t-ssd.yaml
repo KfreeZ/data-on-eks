@@ -29,9 +29,9 @@ spec:
   mainApplicationFile: local:///opt/spark/examples/jars/eks-spark-benchmark-assembly-1.0.jar
   arguments:
     # TPC-DS data location
-    - "s3a://<S3_BUCKET>/TPCDS-TEST-1TB"
+    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1TB"
     # results location
-    - "s3a://<S3_BUCKET>/TPCDS-TEST-1T-RESULT"
+    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1T-RESULT"
     # Path to kit in the docker image
     - "/opt/tpcds-kit/tools"
     # Data Format
@@ -56,7 +56,7 @@ spec:
 
     # Spark Event logs
     "spark.eventLog.enabled": "true"
-    "spark.eventLog.dir": "s3a://<S3_BUCKET>/spark-event-logs"
+    "spark.eventLog.dir": "s3a://20250219081011868600000007/spark-event-logs"
     "spark.eventLog.rolling.enabled": "true"
     "spark.eventLog.rolling.maxFileSize": "64m"
 

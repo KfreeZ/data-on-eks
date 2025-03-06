@@ -127,6 +127,7 @@ module "eks" {
 
       # Change ami_type= AL2023_x86_64_STANDARD for x86 instances
       ami_type = "AL2023_ARM_64_STANDARD" # arm64
+      #ami_type = "AL2023_x86_64_STANDARD" # x86
 
       # Node group will be created with zero instances when you deploy the blueprint.
       # You can change the min_size and desired_size to 6 instances
@@ -151,6 +152,7 @@ module "eks" {
 
       # Change the instance type as you desire and match with ami_type
       instance_types = ["r8g.12xlarge"] # Change Instance type to run the benchmark with various instance types
+      #instance_types = ["r7i.12xlarge"]
 
       labels = {
         NodeGroupType = "spark_benchmark_ebs"
