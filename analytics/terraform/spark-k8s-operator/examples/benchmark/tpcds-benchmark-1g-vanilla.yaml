@@ -1,0 +1,99 @@
+---
+apiVersion: "sparkoperator.k8s.io/v1beta2"
+kind: SparkApplication
+metadata:
+  name: tpcds-benchmark-1gb-vanilla # Vanilla Spark without Gluten
+  namespace: spark-team-a
+spec:
+  type: Scala
+  mode: cluster
+  image: 724772074726.dkr.ecr.us-east-1.amazonaws.com/spark-gluten-tpcds:0701 # Using same image but not enabling Gluten
+  imagePullPolicy: IfNotPresent
+  sparkVersion: 3.5.3
+  mainClass: com.amazonaws.eks.tpcds.BenchmarkSQL
+  mainApplicationFile: local:///opt/spark/examples/jars/eks-spark-benchmark-assembly-1.0.jar
+  arguments:
+    # TPC-DS data location
+    - "s3a://kfz-tpcds-dataset/1g/warehouse/parquet"
+    # results location
+    - "s3a://kfz-tpcds-dataset/TPCDS-TEST-1G-RESULT-VANILLA"
+    # Path to kit in the docker image
+    - "/opt/tpcds-kit/tools"
+    # Data Format
+    - "parquet"
+    # Scale factor (in GB)
+    - "1"
+    # Number of iterations
+    - "1"
+    # Optimize queries with hive tables
+    - "false"
+    # Filter queries - using a very simple query for testing
+    - "q1-v2.4"
+    # Logging set to WARN
+    - "true"
+  sparkConf:
+    # Basic Spark configuration
+    "spark.ui.prometheus.enabled": "true"
+    "spark.executor.processTreeMetrics.enabled": "true"
+    
+    # Timeouts and limits
+    "spark.network.timeout": "600s"  # 10 minutes
+    "spark.executor.heartbeatInterval": "120s"
+    "spark.driver.maxResultSize": "1g"
+    
+    # Job timeout - kill if running too long
+    "spark.jobserver.timeout": "1800s"  # 30 minutes timeout
+    "spark.job.interruptOnCancel": "true"
+    
+    # Kubernetes settings
+    "spark.kubernetes.executor.podNamePrefix": "benchmark-vanilla"
+    "spark.kubernetes.submission.connectionTimeout": "120000"
+    "spark.kubernetes.submission.requestTimeout": "120000"
+    "spark.kubernetes.driver.connectionTimeout": "120000"
+    "spark.kubernetes.driver.requestTimeout": "120000"
+    
+    # S3 configuration
+    "spark.hadoop.fs.s3a.aws.credentials.provider.mapping": "com.amazonaws.auth.WebIdentityTokenCredentialsProvider=software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider"
+    "spark.hadoop.fs.s3a.aws.credentials.provider": "software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider"
+    "spark.hadoop.fs.s3.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem"
+    "spark.hadoop.fs.s3a.fast.upload": "true"
+    "spark.hadoop.fs.s3a.path.style.access": "true"
+    
+    # Enhanced logging for debugging
+    "spark.driver.extraJavaOptions": "-Dlog4j.configuration=file:///opt/spark/conf/log4j.properties -Dlog4j.rootCategory=INFO,console"
+    "spark.executor.extraJavaOptions": "-Dlog4j.configuration=file:///opt/spark/conf/log4j.properties -Dlog4j.rootCategory=INFO,console"
+    
+    # Memory settings
+    "spark.memory.offHeap.enabled": "true"
+    "spark.memory.offHeap.size": "4g"
+    
+    # Disable AQE for simplicity
+    "spark.sql.adaptive.enabled": "false"
+
+  driver:
+    cores: 4
+    memory: "16g"
+    memoryOverhead: "4g"
+    serviceAccount: spark-team-a
+    securityContext:
+      runAsUser: 185
+    env:
+      - name: JAVA_HOME
+        value: "/opt/java/openjdk"
+    nodeSelector:
+      NodeGroupType: SparkComputeOptimized
+  executor:
+    cores: 4
+    memory: "16g"
+    memoryOverhead: "4g"
+    instances: 1
+    serviceAccount: spark-team-a
+    securityContext:
+      runAsUser: 185
+    env:
+      - name: JAVA_HOME
+        value: "/opt/java/openjdk"
+    nodeSelector:
+      NodeGroupType: SparkMemoryOptimized
+  restartPolicy:
+    type: Never

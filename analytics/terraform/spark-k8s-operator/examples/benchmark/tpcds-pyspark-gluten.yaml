@@ -1,0 +1,81 @@
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: tpcds-pyspark-gluten
+  namespace: spark-team-a
+spec:
+  type: Python
+  sparkVersion: "3.5.3"
+  mode: cluster
+  image: "724772074726.dkr.ecr.us-east-1.amazonaws.com/spark-gluten:0701"
+  mainApplicationFile: "local:///opt/spark/work-dir/tpcds_query.py"
+  arguments:
+    - "--source-dir=s3a://kfz-tpcds-dataset/1g/warehouse/parquet"
+    - "--result-dir=s3a://kfz-tpcds-dataset/TPCDS-TEST-1G-RESULT-PYSPARK"
+    - "--query=q1-v2.4"
+  sparkConf:
+    "spark.app.name": "tpcds-pyspark-gluten"
+    "spark.kubernetes.driver.pod.name": "tpcds-pyspark-gluten-driver"
+    "spark.kubernetes.executor.podNamePrefix": "tpcds-pyspark-gluten-executor"
+    
+    # S3 configuration
+    "spark.hadoop.fs.s3a.aws.credentials.provider.mapping": "com.amazonaws.auth.WebIdentityTokenCredentialsProvider=software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider"
+    "spark.hadoop.fs.s3a.aws.credentials.provider": "software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider"
+    "spark.hadoop.fs.s3.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem"
+    "spark.hadoop.fs.s3a.fast.upload": "true"
+    "spark.hadoop.fs.s3a.path.style.access": "true"
+    
+    # Minimal Gluten configuration
+    "spark.driver.extraClassPath": "local:///opt/spark/jars/gluten-velox.jar"
+    "spark.executor.extraClassPath": "local:///opt/spark/jars/gluten-velox.jar"
+    "spark.plugins": "org.apache.gluten.GlutenPlugin"
+    "spark.gluten.enabled": "true"
+    "spark.gluten.sql.enable": "true"
+    "spark.sql.extensions": "org.apache.gluten.extension.GlutenSessionExtensions"
+    "spark.gluten.sql.columnar.backend.velox": "true"
+    "spark.gluten.sql.columnar.backend.lib": "libvelox_jni.so"
+    
+    # Only enable file scan
+    "spark.gluten.sql.columnar.filescan.enabled": "true"
+    "spark.gluten.sql.columnar.filter.enabled": "true"
+    "spark.gluten.sql.columnar.project.enabled": "true"
+    
+    # Disable everything else
+    "spark.gluten.sql.columnar.broadcastExchange.enabled": "false"
+    "spark.gluten.sql.columnar.broadcastHashJoin.enabled": "false"
+    "spark.gluten.sql.columnar.writeFiles.enabled": "false"
+    "spark.gluten.sql.columnar.shuffledHashJoin.enabled": "false"
+    "spark.gluten.sql.columnar.sortMergeJoin.enabled": "false"
+    
+    # Force fallback
+    "spark.gluten.sql.columnar.skipUnsupportedOperator": "true"
+    "spark.gluten.sql.columnar.fallbackPolicy": "all"
+    
+    # Memory settings
+    "spark.memory.offHeap.enabled": "true"
+    "spark.memory.offHeap.size": "4g"
+
+  restartPolicy:
+    type: OnFailure
+    onFailureRetries: 0
+
+  driver:
+    cores: 4
+    memory: "16g"
+    memoryOverhead: "4g"
+    serviceAccount: spark-team-a
+    securityContext:
+      runAsUser: 185
+    nodeSelector:
+      NodeGroupType: SparkComputeOptimized
+
+  executor:
+    cores: 4
+    instances: 1
+    memory: "16g"
+    memoryOverhead: "4g"
+    serviceAccount: spark-team-a
+    securityContext:
+      runAsUser: 185
+    nodeSelector:
+      NodeGroupType: SparkMemoryOptimized

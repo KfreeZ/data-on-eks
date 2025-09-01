@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spark-metrics-collector
+  namespace: spark-team-a
+spec:
+  template:
+    spec:
+      serviceAccountName: spark-team-a
+      containers:
+      - name: metrics-collector
+        image: python:3.9-slim
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            pip install requests boto3
+            python /scripts/collect-metrics.py \
+              --prometheus-url http://prometheus-server:9090 \
+              --s3-bucket spark-operator-doeks-spark-logs-20250409142902480900000001 \
+              --job-name tpcds-benchmark-1gb-monitored \
+              --duration 120
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        env:
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: AWS_ROLE_ARN
+          value: "arn:aws:iam::ACCOUNT:role/spark-team-a"
+        - name: AWS_WEB_IDENTITY_TOKEN_FILE
+          value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+      volumes:
+      - name: scripts
+        configMap:
+          name: metrics-collector-script
+          defaultMode: 0755
+      restartPolicy: OnFailure
+  backoffLimit: 3

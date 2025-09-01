@@ -29,9 +29,9 @@ spec:
   mainApplicationFile: local:///opt/spark/examples/jars/eks-spark-benchmark-assembly-1.0.jar
   arguments:
     # TPC-DS data location
-    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1GB"
+    - "s3a://kfz-tpcds-dataset/1g/warehouse/parquet"
     # results location
-    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1G-RESULT"
+    - "s3a://kfz-tpcds-dataset/TPCDS-TEST-1G-RESULT"
     # Path to kit in the docker image
     - "/opt/tpcds-kit/tools"
     # Data Format
@@ -56,7 +56,7 @@ spec:
 
     # Spark Event logs
     "spark.eventLog.enabled": "true"
-    "spark.eventLog.dir": "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/spark-event-logs"
+    "spark.eventLog.dir": "s3a://spark-operator-doeks-spark-logs-20250409142902480900000001/spark-event-logs"
     "spark.eventLog.rolling.enabled": "true"
     "spark.eventLog.rolling.maxFileSize": "64m"
 
@@ -112,9 +112,9 @@ spec:
     "spark.hadoop.fs.s3a.multipart.purge": "true"               # Automatically clear failed multipart uploads
     "spark.hadoop.fs.s3a.multipart.threshold": "134217728"      # 128 MB threshold to start multi-part upload
   driver:
-    cores: 4
-    memory: "16g"
-    memoryOverhead: "6g"
+    cores: 1
+    memory: "7g"
+    memoryOverhead: "1g"
     serviceAccount: spark-team-a
     securityContext:
       runAsUser: 185
@@ -122,13 +122,13 @@ spec:
       - name: JAVA_HOME
         value: "/opt/java/openjdk"
     nodeSelector:
-      #NodeGroupType: spark_benchmark_ebs #for managed node group
-      NodeGroupType: SparkMemoryOptimized #for karpenter
+      NodeGroupType: spark_benchmark_ebs_r8g_fixed #for managed node group
+      # NodeGroupType: SparkMemoryOptimized #for karpenter
   executor:
-    cores: 4
-    memory: "16g"
-    memoryOverhead: "6g"
-    instances: 24 
+    cores: 1
+    memory: "7g"
+    memoryOverhead: "1g"
+    instances: 40
     serviceAccount: spark-team-a
     securityContext:
       runAsUser: 185
@@ -136,7 +136,7 @@ spec:
       - name: JAVA_HOME
         value: "/opt/java/openjdk"
     nodeSelector:
-      # NodeGroupType: spark_benchmark_ebs #for managed node group
-      NodeGroupType: SparkMixMemoryOptimized #for karpenter
+      NodeGroupType: spark_benchmark_ebs_r8g_fixed #for managed node group
+      # NodeGroupType: SparkMixMemoryOptimized #for karpenter
   restartPolicy:
     type: Never

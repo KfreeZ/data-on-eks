@@ -1,0 +1,129 @@
+---
+apiVersion: "sparkoperator.k8s.io/v1beta2"
+kind: SparkApplication
+metadata:
+  name: tpcds-benchmark-1gb-minimal # Minimal configuration for debugging
+  namespace: spark-team-a
+spec:
+  type: Scala
+  mode: cluster
+  # image: 724772074726.dkr.ecr.us-east-1.amazonaws.com/spark-gluten-tpcds:official072102
+  image: 724772074726.dkr.ecr.us-east-1.amazonaws.com/spark-gluten-tpcds:0701
+  imagePullPolicy: IfNotPresent
+  sparkVersion: 3.5.3
+  mainClass: com.amazonaws.eks.tpcds.BenchmarkSQL
+  mainApplicationFile: local:///opt/spark/examples/jars/eks-spark-benchmark-assembly-1.0.jar
+  arguments:
+    # TPC-DS data location
+    - "s3a://kfz-tpcds-dataset/1g/warehouse/parquet"
+    # results location
+    - "s3a://kfz-tpcds-dataset/TPCDS-TEST-1G-RESULT"
+    # Path to kit in the docker image
+    - "/opt/tpcds-kit/tools"
+    # Data Format
+    - "parquet"
+    # Scale factor (in GB)
+    - "1"
+    # Number of iterations
+    - "1"
+    # Optimize queries with hive tables
+    - "false"
+    # Filter queries - using a very simple query for testing
+    - "q6-v2.4"
+    # Logging set to WARN
+    - "true"
+  sparkConf:
+    # Basic Spark configuration
+    "spark.ui.prometheus.enabled": "true"
+    "spark.executor.processTreeMetrics.enabled": "true"
+    
+    # Timeouts and limits
+    "spark.network.timeout": "600s"  # 10 minutes
+    "spark.executor.heartbeatInterval": "120s"
+    "spark.driver.maxResultSize": "1g"
+    
+    # Job timeout - kill if running too long
+    "spark.jobserver.timeout": "1800s"  # 30 minutes timeout
+    "spark.job.interruptOnCancel": "true"
+    
+    # Kubernetes settings
+    "spark.kubernetes.executor.podNamePrefix": "benchmark-minimal"
+    "spark.kubernetes.submission.connectionTimeout": "120000"
+    "spark.kubernetes.submission.requestTimeout": "120000"
+    "spark.kubernetes.driver.connectionTimeout": "120000"
+    "spark.kubernetes.driver.requestTimeout": "120000"
+    
+    # S3 configuration
+    "spark.hadoop.fs.s3a.aws.credentials.provider.mapping": "com.amazonaws.auth.WebIdentityTokenCredentialsProvider=software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider"
+    "spark.hadoop.fs.s3a.aws.credentials.provider": "software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider"
+    "spark.hadoop.fs.s3.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem"
+    "spark.hadoop.fs.s3a.fast.upload": "true"
+    "spark.hadoop.fs.s3a.path.style.access": "true"
+    
+    # Minimal Gluten configuration - only enable the most stable features
+    "spark.driver.extraClassPath": "local:///opt/gluten/gluten-velox-bundle-spark3.5_2.12-linux_amd64-1.5.0-SNAPSHOT-java11.jar"
+    "spark.executor.extraClassPath": "local:///opt/gluten/gluten-velox-bundle-spark3.5_2.12-linux_amd64-1.5.0-SNAPSHOT-java11.jar"
+    "spark.plugins": "org.apache.gluten.GlutenPlugin"
+    "spark.gluten.enabled": "true"
+    "spark.gluten.sql.enable": "true"
+    "spark.sql.extensions": "org.apache.gluten.extension.GlutenSessionExtensions"
+    "spark.gluten.sql.columnar.backend.velox": "true"
+    "spark.gluten.sql.columnar.backend.lib": "libvelox_jni.so"
+    # "spark.gluten.sql.columnar.filescan.enabled": "true"
+    # "spark.gluten.sql.columnar.broadcastExchange.enabled": "true"
+    # "spark.gluten.sql.columnar.broadcastHashJoin.enabled": "true"
+    # "spark.gluten.sql.columnar.writeFiles.enabled": "true"
+    # Disable all potentially problematic operations
+    # "spark.gluten.sql.columnar.shuffledHashJoin.enabled": "false"
+    # "spark.gluten.sql.columnar.sortMergeJoin.enabled": "false"
+    # "spark.gluten.sql.columnar.window.enabled": "false"
+    # "spark.gluten.sql.columnar.wholestagecodegen.enabled": "false"
+    
+    # Disable broadcast joins completely
+    # "spark.sql.autoBroadcastJoinThreshold": "-1"
+    
+    # Force fallback to vanilla Spark for all operations
+    # "spark.gluten.sql.columnar.skipUnsupportedOperator": "true"
+    # "spark.gluten.sql.columnar.forceFallback": "true"  # Force fallback for everything
+    # "spark.gluten.sql.columnar.fallbackPolicy": "all"
+    
+    # Enhanced logging for debugging
+    "spark.gluten.sql.debug": "true"
+    "spark.gluten.sql.validation.logLevel": "DEBUG"
+    "spark.driver.extraJavaOptions": "-Dlog4j.configuration=file:///opt/spark/conf/log4j.properties -Dlog4j.rootCategory=INFO,console"
+    "spark.executor.extraJavaOptions": "-Dlog4j.configuration=file:///opt/spark/conf/log4j.properties -Dlog4j.rootCategory=INFO,console"
+    
+    # Memory settings
+    "spark.memory.offHeap.enabled": "true"
+    "spark.memory.offHeap.size": "4g"
+    
+    # Disable AQE for simplicity
+    "spark.sql.adaptive.enabled": "false"
+
+  driver:
+    cores: 4  # Reduced from 12
+    memory: "16g"  # Reduced from 24g
+    memoryOverhead: "4g"  # Reduced from 8g
+    serviceAccount: spark-team-a
+    securityContext:
+      runAsUser: 185
+    env:
+      - name: JAVA_HOME
+        value: "/opt/java/openjdk"
+    nodeSelector:
+      NodeGroupType: SparkComputeOptimized
+  executor:
+    cores: 4
+    memory: "16g"  # Reduced from 24g
+    memoryOverhead: "4g"  # Reduced from 8g
+    instances: 1
+    serviceAccount: spark-team-a
+    securityContext:
+      runAsUser: 185
+    env:
+      - name: JAVA_HOME
+        value: "/opt/java/openjdk"
+    nodeSelector:
+      NodeGroupType: SparkMemoryOptimized
+  restartPolicy:
+    type: Never

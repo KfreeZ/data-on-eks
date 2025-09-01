@@ -1,0 +1,137 @@
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: q-1gb-ebs-gluten
+  namespace: spark-team-a
+spec:
+  type: Python
+  sparkVersion: "3.5.3"
+  mode: cluster
+  image: "724772074726.dkr.ecr.us-east-1.amazonaws.com/spark-gluten:v2"
+  mainApplicationFile: "s3a://kfz-tpcds-dataset/simpleq.py"
+  arguments:
+    - "--source-dir=s3a://kfz-tpcds-dataset/TPCDS-TEST-1GB/"
+  sparkConf:
+    "spark.app.name": "tpcds-q-1gb-ebs-gluten"
+    "spark.kubernetes.driver.pod.name": "tpcds-q-1gb-ebs-gluten-driver"
+    "spark.kubernetes.executor.podNamePrefix": "tpcds-q-1gb-ebs-gluten-executor"
+    "spark.local.dir": "/data"
+    "spark.speculation": "false"
+    "spark.network.timeout": "2400"
+    "spark.hadoop.fs.s3a.connection.establish.timeout": "15000"
+    "spark.hadoop.fs.s3a.connection.timeout": "1200000ms"
+    "spark.hadoop.fs.s3a.path.style.access": "true"
+    "spark.hadoop.fs.s3a.connection.maximum": "200"
+    "spark.hadoop.fs.s3a.fast.upload": "true"
+    "spark.hadoop.fs.s3a.readahead.range": "256K"
+    "spark.hadoop.fs.s3a.input.fadvise": "random"
+    "spark.hadoop.fs.s3a.aws.credentials.provider.mapping": "com.amazonaws.auth.WebIdentityTokenCredentialsProvider=software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider"
+    "spark.hadoop.fs.s3a.aws.credentials.provider": "software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider" # AWS SDK V2 https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/aws_sdk_upgrade.html
+
+    # Spark Event logs
+    # "spark.eventLog.enabled": "true"
+    # "spark.eventLog.dir": "s3a://spark-operator-doeks-spark-logs-20250409142902480900000001/spark-event-logs"
+    # "spark.eventLog.rolling.enabled": "true"
+    # "spark.eventLog.rolling.maxFileSize": "64m"
+    # "spark.network.timeout": "2000s"
+    # "spark.executor.heartbeatInterval": "300s"
+    # -----------------------------------------------------
+    # This block is very critical when you get errors like
+    #     Exception in thread \"main\" io.fabric8.kubernetes.client.KubernetesClientException: An error has occurred
+    #     Caused by: java.net.SocketTimeoutException: timeout
+    # spark.kubernetes.local.dirs.tmpfs: "true" # More details here https://spark.apache.org/docs/latest/running-on-kubernetes.html#using-ram-for-local-storage
+    spark.kubernetes.submission.connectionTimeout: "120000" # milliseconds
+    spark.kubernetes.submission.requestTimeout: "120000"
+    spark.kubernetes.driver.connectionTimeout: "120000"
+    spark.kubernetes.driver.requestTimeout: "120000"
+    # spark.kubernetes.allocation.batch.size: "20" # default 5 but adjust according to your cluster size
+    # -----------------------------------------------------
+
+   # S3 Optimizations
+    "spark.hadoop.fs.s3a.multipart.size": "67108864"           # 64 MB part size for S3 uploads
+    "spark.hadoop.fs.s3a.threads.max": "40"                     # Limit S3 threads for optimized throughput
+    "spark.hadoop.fs.s3a.connection.maximum": "100"             # Set max connections for S3
+
+    # Shuffle and memory tuning
+    "spark.shuffle.file.buffer": "1m"
+    "spark.reducer.maxSizeInFlight": "48m"
+    "spark.memory.offHeap.enabled": "true"
+    "spark.memory.offHeap.size": "6g"
+    "spark.executor.heartbeatInterval": "60s" # Added heartbeat interval
+    "spark.network.timeout": "301s" # Increased timeout
+
+    # Optional: Tuning multipart upload threshold
+    "spark.hadoop.fs.s3a.multipart.purge": "true"               # Automatically clear failed multipart uploads
+    "spark.hadoop.fs.s3a.multipart.threshold": "134217728"      # 128 MB threshold to start multi-part upload
+    "spark.sql.autoBroadcastJoinThreshold": "-1"
+    # gluten
+    "spark.jars": "local:///opt/spark/jars/gluten-velox-bundle-spark3.5_2.12-centos_7_x86_64-1.3.0.jar"
+    "spark.plugins": "org.apache.gluten.GlutenPlugin"
+    "spark.gluten.enabled": "true"
+    "spark.gluten.sql.enable": "true"
+    "spark.sql.extensions": "org.apache.gluten.extension.GlutenSessionExtensions"
+    "spark.gluten.sql.columnar.backend.velox": "true"
+    "spark.gluten.sql.columnar.backend.lib": "libvelox_jni.so"
+    "spark.gluten.sql.columnar.velox.memoryCapacity": "10GB" #add
+    "spark.gluten.sql.columnar.velox.spillEnabled": "true" #add
+    "spark.gluten.sql.columnar.velox.spillStartBytes": "8GB" #add
+    "spark.gluten.sql.columnar.velox.spillEnabled": "true"
+    "spark.gluten.sql.columnar.velox.spillStartBytes": "5GB" 
+    "spark.gluten.sql.columnar.velox.spillFileSystem": "local"
+    "spark.gluten.sql.columnar.velox.spillFileSystemDataPath": "/data/velox_spill"
+
+    # Memory settings
+    "spark.memory.offHeap.enabled": "true"
+    "spark.memory.offHeap.size": "6g"
+
+    # Critical fallback settings - UPDATED
+    "spark.gluten.sql.columnar.skipUnsupportedOperator": "true"
+    "spark.gluten.sql.columnar.forceFallback": "false"
+    "spark.gluten.sql.columnar.fallbackPolicy": "all"  #changed from exception
+    "spark.gluten.sql.columnar.exchange.forceFallback": "true"  
+    "spark.sql.adaptive.enabled": "true"  
+
+    # Performance optimizations
+    "spark.gluten.sql.columnar.iterator.enableJemalloc": "true"
+    "spark.gluten.sql.columnar.forceShuffle": "true"
+    "spark.gluten.sql.enable.vectorized.hash.map": "true"
+    "spark.gluten.sql.columnar.backend.ch.transferBufferSize": "4194304"
+    "spark.gluten.sql.columnar.forceShuffledHashJoin": "false"
+    "spark.gluten.sql.columnar.hashagg.enableTwoLevel": "true"
+    "spark.gluten.sql.columnar.tmp_path_prefix": "/data"
+    "spark.gluten.sql.columnar.velox.memoryArbitratorKind": "identity"  # Use identity instead of NOOP
+    
+    # Batch size optimizations
+    "spark.sql.parquet.columnarReaderBatchSize": "4096"
+    "spark.sql.inMemoryColumnarStorage.batchSize": "4096"
+    "spark.sql.execution.arrow.maxRecordsPerBatch": "4096"
+
+  restartPolicy:
+    type: OnFailure
+    onFailureRetries: 0
+
+  driver:
+    cores: 4
+    # coreLimit: "1200m"
+    memory: "16g"
+    memoryOverhead: "8g"
+    serviceAccount: spark-team-a
+    securityContext:
+      runAsUser: 185
+    nodeSelector:
+      #NodeGroupType: "SparkComputeOptimized"
+      NodeGroupType: "SparkGravitonMemoryOptimized"
+      karpenter.sh/capacity-type: "on-demand"
+
+  executor:
+    cores: 4
+    # coreLimit: "1200m"
+    instances: 2
+    memoryOverhead: "8g"
+    memory: "16g"
+    serviceAccount: spark-team-a
+    securityContext:
+      runAsUser: 185
+    nodeSelector:
+      # NodeGroupType: "SparkComputeOptimized"
+      NodeGroupType: "SparkGravitonMemoryOptimized"

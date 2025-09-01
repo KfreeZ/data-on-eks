@@ -29,7 +29,7 @@ spec:
   mainApplicationFile: local:///opt/spark/examples/jars/eks-spark-benchmark-assembly-1.0.jar
   arguments:
     # TPC-DS data location
-    - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1TB-30krec/"
+    - "s3a://kfz-tpcds-dataset/1t/parquet/"
     # results location
     - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1T-RESULT/30krec"
     # Path to kit in the docker image

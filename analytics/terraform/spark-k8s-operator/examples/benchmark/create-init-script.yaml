@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gluten-init-script
+  namespace: spark-team-a
+data:
+  gluten-init.sql: |
+    -- Set global configurations
+    SET spark.gluten.enabled=true;
+    SET spark.gluten.sql.enable=true;
+    
+    -- Create a function to enable/disable Gluten for specific operations
+    CREATE TEMPORARY FUNCTION enableGlutenForScan() RETURN BOOLEAN USING
+    'org.apache.spark.sql.execution.GlutenScanEnabler';
+    
+    -- Only enable Gluten for specific operations
+    SET spark.gluten.sql.columnar.filescan.enabled=true;
+    SET spark.gluten.sql.columnar.filter.enabled=true;
+    SET spark.gluten.sql.columnar.project.enabled=true;
+    
+    -- Disable problematic operations
+    SET spark.gluten.sql.columnar.broadcastExchange.enabled=false;
+    SET spark.gluten.sql.columnar.broadcastHashJoin.enabled=false;
+    SET spark.gluten.sql.columnar.writeFiles.enabled=false;
+    SET spark.gluten.sql.columnar.shuffledHashJoin.enabled=false;
+    SET spark.gluten.sql.columnar.sortMergeJoin.enabled=false;
+    
+    -- Set fallback policy
+    SET spark.gluten.sql.columnar.skipUnsupportedOperator=true;
+    SET spark.gluten.sql.columnar.fallbackPolicy=all;

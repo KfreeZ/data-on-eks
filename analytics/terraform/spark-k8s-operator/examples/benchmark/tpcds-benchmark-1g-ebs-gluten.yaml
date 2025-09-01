@@ -23,7 +23,7 @@ spec:
   type: Scala
   mode: cluster
   # image: public.ecr.aws/data-on-eks/spark3.5.3-scala2.12-java17-python3-ubuntu-tpcds:v2
-  image: 724772074726.dkr.ecr.us-east-1.amazonaws.com/spark-gluten-tpcds:v0
+  image: 724772074726.dkr.ecr.us-east-1.amazonaws.com/spark-gluten-tpcds:0701
   imagePullPolicy: IfNotPresent
   sparkVersion: 3.5.3
   mainClass: com.amazonaws.eks.tpcds.BenchmarkSQL
@@ -44,7 +44,7 @@ spec:
     # Optimize queries with hive tables
     - "false"
     # Filter queries, will run all if empty - "q98-v2.4,q99-v2.4,ss_max-v2.4,q95-v2.4"
-    - ""
+    - "q1-v2.4"
     # Logging set to WARN
     - "true"
   sparkConf:
@@ -61,13 +61,15 @@ spec:
     "spark.eventLog.rolling.enabled": "true"
     "spark.eventLog.rolling.maxFileSize": "64m"
 
-    "spark.network.timeout": "2000s"
+    "spark.network.timeout": "800s"
+    "spark.sql.broadcastTimeout": "600"
     "spark.executor.heartbeatInterval": "300s"
     # AQE
     "spark.sql.adaptive.enabled": "true"
     "spark.sql.adaptive.localShuffleReader.enabled": "true"
     "spark.sql.adaptive.coalescePartitions.enabled": "true"
     "spark.sql.adaptive.skewJoin.enabled": "true"
+    "spark.sql.adaptive.coalescePartitions.minPartitionNum": "4"
     "spark.kubernetes.executor.podNamePrefix": "benchmark-exec" #for karpenter
     # "spark.kubernetes.executor.podNamePrefix": "benchmark-exec-ebs" #for managed node group
 
@@ -101,26 +103,48 @@ spec:
     # spark.kubernetes.allocation.batch.size: "20" # default 5 but adjust according to your cluster size
     # -----------------------------------------------------
     # S3 Optimizations
-    "spark.hadoop.fs.s3a.multipart.size": "67108864"           # 64 MB part size for S3 uploads
-    "spark.hadoop.fs.s3a.threads.max": "40"                     # Limit S3 threads for optimized throughput
-    "spark.hadoop.fs.s3a.connection.maximum": "100"             # Set max connections for S3
-
+    "spark.hadoop.fs.s3a.multipart.size": "104857600"           # 64 MB part size for S3 uploads
+    "spark.hadoop.fs.s3a.threads.max": "20"             # Limit S3 threads for optimized throughput
     # Data writing and shuffle tuning
-    "spark.shuffle.file.buffer": "1m"                           # Increase shuffle buffer for better disk I/O
-    "spark.reducer.maxSizeInFlight": "48m"                      # Increase reducer buffer size in-flight data
-
-    # Optional: Tuning multipart upload threshold
-    "spark.hadoop.fs.s3a.multipart.purge": "true"               # Automatically clear failed multipart uploads
-    "spark.hadoop.fs.s3a.multipart.threshold": "134217728"      # 128 MB threshold to start multi-part upload
-
+    # "spark.shuffle.file.buffer": "1m"                           # Increase shuffle buffer for better disk I/O
+    # "spark.reducer.maxSizeInFlight": "48m"                      # Increase reducer buffer size in-flight data
+    # # Optional: Tuning multipart upload threshold
+    # "spark.hadoop.fs.s3a.multipart.purge": "true"               # Automatically clear failed multipart uploads
+    # "spark.hadoop.fs.s3a.multipart.threshold": "134217728"      # 128 MB threshold to start multi-part upload
+    
     # gluten
-    "spark.jars": "local:///opt/spark/jars/gluten-velox-bundle-spark3.5_2.12-centos_7_x86_64-1.3.0.jar"
+    "spark.driver.extraClassPath": "local:///opt/gluten/gluten-velox-bundle-spark3.5_2.12-linux_amd64-1.5.0-SNAPSHOT-java11.jar"
+    "spark.executor.extraClassPath": "local:///opt/gluten/gluten-velox-bundle-spark3.5_2.12-linux_amd64-1.5.0-SNAPSHOT-java11.jar"
+    # "spark.driver.extraClassPath": "local:///opt/gluten/gluten-velox-bundle-spark3.5_2.12-linux_aarch64-1.5.0-SNAPSHOT.jar"
+    # "spark.executor.extraClassPath": "local:///opt/gluten/gluten-velox-bundle-spark3.5_2.12-linux_aarch64-1.5.0-SNAPSHOT.jar"
     "spark.plugins": "org.apache.gluten.GlutenPlugin"
     "spark.gluten.enabled": "true"
     "spark.gluten.sql.enable": "true"
     "spark.sql.extensions": "org.apache.gluten.extension.GlutenSessionExtensions"
+    "spark.sql.autoBroadcastJoinThreshold": "-1"
     "spark.gluten.sql.columnar.backend.velox": "true"
     "spark.gluten.sql.columnar.backend.lib": "libvelox_jni.so"
+    "spark.gluten.sql.columnar.filescan.enabled": "false"
+    "spark.gluten.sql.columnar.broadcastExchange.enabled": "false"
+    "spark.gluten.sql.columnar.broadcastHashJoin.enabled": "false"
+    "spark.gluten.sql.columnar.writeFiles.enabled": "false"
+    #"spark.gluten.sql.columnar.backend.velox.bloomFilter.enabled": "false"
+    # Disable other potentially problematic operations
+    "spark.gluten.sql.columnar.shuffledHashJoin.enabled": "false"  # Shuffle joins initially
+    "spark.gluten.sql.columnar.sortMergeJoin.enabled": "true"      # Keep sort-merge joins
+    "spark.gluten.sql.columnar.window.enabled": "true"            # Keep window functions
+    "spark.gluten.sql.columnar.wholestagecodegen.enabled": "true" # Keep codegen
+    # Force validation to ensure fallbacks work
+    "spark.gluten.sql.enable.native.validation": "false"
+
+    # "spark.gluten.memory.task.offHeap.size.in.bytes": "2147483648"
+    "spark.gluten.sql.debug": "true"
+    "spark.gluten.sql.validation.logLevel": "DEBUG"
+    "spark.gluten.memory.debug": "true"
+    "spark.gluten.sql.columnar.backend.velox.glog.v": "3"
+    "spark.gluten.sql.columnar.backend.velox.glog.minloglevel": "0"
+    "spark.gluten.sql.columnar.backend.velox.glog.stderrthreshold": "0"
+    "spark.gluten.sql.columnar.backend.velox.glog.alsologtostderr": "true"
 
     # Memory settings
     "spark.memory.offHeap.enabled": "true"
@@ -134,17 +158,17 @@ spec:
     "spark.sql.adaptive.enabled": "false"  
 
     # Performance optimizations
-    "spark.gluten.sql.columnar.iterator.enableJemalloc": "true"
-    "spark.gluten.sql.columnar.forceShuffle": "true"
-    "spark.gluten.sql.enable.vectorized.hash.map": "true"
-    "spark.gluten.sql.columnar.backend.ch.transferBufferSize": "4194304"
-    "spark.gluten.sql.columnar.forceShuffledHashJoin": "false"
-    "spark.gluten.sql.columnar.hashagg.enableTwoLevel": "true"
+    # "spark.gluten.sql.columnar.iterator.enableJemalloc": "true"
+    # "spark.gluten.sql.columnar.forceShuffle": "true"
+    # "spark.gluten.sql.enable.vectorized.hash.map": "true"
+    # "spark.gluten.sql.columnar.backend.ch.transferBufferSize": "4194304"
+    # "spark.gluten.sql.columnar.forceShuffledHashJoin": "false"
+    # "spark.gluten.sql.columnar.hashagg.enableTwoLevel": "true"
     
     # Batch size optimizations
-    "spark.sql.parquet.columnarReaderBatchSize": "4096"
-    "spark.sql.inMemoryColumnarStorage.batchSize": "4096"
-    "spark.sql.execution.arrow.maxRecordsPerBatch": "4096"
+    # "spark.sql.parquet.columnarReaderBatchSize": "4096"
+    # "spark.sql.inMemoryColumnarStorage.batchSize": "4096"
+    # "spark.sql.execution.arrow.maxRecordsPerBatch": "4096"
 
   driver:
     cores: 12
@@ -157,13 +181,13 @@ spec:
       - name: JAVA_HOME
         value: "/opt/java/openjdk"
     nodeSelector:
-      # NodeGroupType: spark_benchmark_ebs #for managed node group
+      # NodeGroupType: "SparkGravitonMemoryOptimized"
       NodeGroupType: SparkComputeOptimized #for karpenter SparkComputeOptimized|SparkMemoryOptimized
   executor:
     cores: 4
     memory: "24g"
     memoryOverhead: "8g"
-    instances: 24
+    instances: 4
     serviceAccount: spark-team-a
     securityContext:
       runAsUser: 185
@@ -171,7 +195,7 @@ spec:
       - name: JAVA_HOME
         value: "/opt/java/openjdk"
     nodeSelector:
-      # NodeGroupType: spark_benchmark_ebs #for managed node group
+      # NodeGroupType: "SparkGravitonMemoryOptimized"
       NodeGroupType: SparkMemoryOptimized #for karpenter SparkComputeOptimized|SparkMemoryOptimized
   restartPolicy:
     type: Never

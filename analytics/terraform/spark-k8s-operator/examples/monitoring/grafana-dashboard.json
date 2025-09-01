@@ -1,0 +1,124 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Spark Job Resource Monitoring",
+    "tags": ["spark", "kubernetes", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Driver CPU Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{pod=~\".*-driver\", namespace=\"spark-team-a\"}[5m]) * 100",
+            "legendFormat": "CPU Usage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Driver Memory Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{pod=~\".*-driver\", namespace=\"spark-team-a\"} / container_spec_memory_limit_bytes{pod=~\".*-driver\", namespace=\"spark-team-a\"} * 100",
+            "legendFormat": "Memory Usage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Executor CPU Usage",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{pod=~\".*-exec.*\", namespace=\"spark-team-a\"}[5m]) * 100",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Executor Memory Usage",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{pod=~\".*-exec.*\", namespace=\"spark-team-a\"} / 1024 / 1024 / 1024",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decgbytes"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Spark Application Metrics",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "spark_driver_DAGScheduler_stage_runningStages",
+            "legendFormat": "Running Stages"
+          },
+          {
+            "expr": "spark_driver_DAGScheduler_job_allJobs",
+            "legendFormat": "Total Jobs"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "JVM Memory Usage",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "spark_driver_jvm_heap_used / spark_driver_jvm_heap_max * 100",
+            "legendFormat": "Driver Heap Usage %"
+          },
+          {
+            "expr": "spark_executor_jvm_heap_used / spark_executor_jvm_heap_max * 100",
+            "legendFormat": "Executor Heap Usage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "5s"
+  }
+}

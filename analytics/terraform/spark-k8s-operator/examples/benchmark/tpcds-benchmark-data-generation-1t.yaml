@@ -21,13 +21,13 @@ spec:
   mainApplicationFile: local:///opt/spark/examples/jars/eks-spark-benchmark-assembly-1.0.jar
   arguments:
   # TPC-DS data location
-  - "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/TPCDS-TEST-1TB-30krec"
+  - "s3a://kfz-tpcds-dataset/100G/parquet/"
   # Path to kit in the docker image
   - "/opt/tpcds-kit/tools"
   # Data Format
   - "parquet"
   # Scale factor (in GB) - S3 output size shows  309.4GB for 1000GB Input
-  - "1000"
+  - "100"
   # Generate data num partitions
   - "200"
   # Create the partitioned fact tables
@@ -46,7 +46,7 @@ spec:
 
     # Spark Event logs
     "spark.eventLog.enabled": "true"
-    "spark.eventLog.dir": "s3a://spark-operator-doeks-spark-logs-20250219081011868600000007/spark-event-logs"
+    "spark.eventLog.dir": "s3a://spark-operator-doeks-spark-logs-20250409142902480900000001/spark-event-logs"
     "spark.eventLog.rolling.enabled": "true"
     "spark.eventLog.rolling.maxFileSize": "64m"
 
@@ -101,7 +101,7 @@ spec:
   restartPolicy:
     type: Never
   driver:
-    cores: 8
+    cores: 4
     # The maximum memory size of the container to the running executor is determined by the sum of
     #  spark.executor.memoryoverHead, spark.executor.memory, spark.memory.offHeap.size, spark.executor.pyspark.memory
     memory: "16g"
@@ -123,14 +123,14 @@ spec:
       - name: spark-local-dir-1
         mountPath: /data1
     nodeSelector:
-      NodeGroupType: spark_benchmark_ssd
+      NodeGroupType: spark_benchmark_ssd_r8gd
   executor:
-    cores: 8
+    cores: 4
     # The maximum memory size of the container to the running executor is determined by the sum of
     #  spark.executor.memoryoverHead, spark.executor.memory, spark.memory.offHeap.size, spark.executor.pyspark.memory
     memory: "16g"
     memoryOverhead: "4g"
-    instances: 24
+    instances: 32
     serviceAccount: spark-team-a
     securityContext:
       runAsUser: 185
@@ -148,7 +148,7 @@ spec:
     - name: JAVA_HOME
       value: "/opt/java/openjdk"
     nodeSelector:
-      NodeGroupType: spark_benchmark_ssd
+      NodeGroupType: spark_benchmark_ssd_r8gd
   volumes:
   - name: spark-local-dir-1
     hostPath:

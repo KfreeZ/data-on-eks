@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-gluten-image
+  namespace: spark-team-a
+spec:
+  containers:
+  - name: debug
+    image: 724772074726.dkr.ecr.us-east-1.amazonaws.com/spark-gluten-tpcds:0701
+    command: ["sleep", "3600"]
+    securityContext:
+      runAsUser: 185
+  restartPolicy: Never
